@@ -1,0 +1,25 @@
+# Place this file in /etc/systemd/system
+# systemctl start homestats.service
+# systemctl stop homestats.service
+# journalctl -xe
+# journalctl -u homestats.service
+# systemctl enable homestats.service
+
+[Unit]
+Description=Home Stats Service
+After=network.target
+
+[Service]
+LimitNOFILE=infinity
+LimitNPROC=infinity
+LimitCORE=infinity
+ExecStart=/home/ubuntu/home-stats/home-stats
+WorkingDirectory=/home/ubuntu/home-stats
+User=ubuntu
+Type=simple
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+

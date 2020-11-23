@@ -1,0 +1,29 @@
+{
+  "interval": "10m",
+  "thermostat": {
+    "enabled": true,
+    "username": "your-hive-username",
+    "password": "password",
+    "thermostatID": "000-aaaa-0000-111",
+    "autoBoost": {
+      "enabled": true,
+      "minTemperature": 16.5,
+      "targetDuration": 30,
+      "targetTemperature": 22
+    }
+  },
+  "weather": {
+    "enabled": true,
+    "city": "london",
+    "country": "gb",
+    "apiKey": "your-open-weather-API-key",
+    "units": "metric"
+  },
+  "influxDBConfig": {
+    "uri": "http://localhost:8086",
+    "username": "username",
+    "password": "password",
+    "database": "database"
+  }
+}
+
