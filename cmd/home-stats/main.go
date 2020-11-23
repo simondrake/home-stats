@@ -42,7 +42,15 @@ func main() {
 		log.Fatalf("unable to parse duration: %+v", err)
 	}
 
-	fmt.Printf("Duration set: %v \n", interval)
+	fmt.Printf(`Config Values set
+  Interval: %v
+  Thermostat Enabled: %t
+  AutoBoost Enabled: %t
+  AutoBoost Min Temperature: %f
+  Weather Enabled: %t
+
+`, interval,
+		conf.Thermostat.Enabled, conf.Thermostat.AutoBoost.Enabled, conf.Thermostat.AutoBoost.MinTemperature, conf.Weather.Enabled)
 
 	t := time.NewTicker(interval)
 
