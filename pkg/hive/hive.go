@@ -20,6 +20,7 @@ type Config struct {
 }
 
 type Hive struct {
+	httpClient httpClient
 	Config
 }
 
@@ -56,17 +57,28 @@ type Report struct {
 	ReportChangedTime  int64       `json:"reportChangedTime,omitempty"`
 }
 
-func New(c Config) *Hive {
-	return &Hive{
-		Config: c,
+// New takes a Config object and an optional httpClient
+// and returns a pointer to a Hive object
+func New(c Config, client httpClient) *Hive {
+	if client == nil {
+		client = &http.Client{}
 	}
+
+	return &Hive{
+		httpClient: client,
+		Config:     c,
+	}
+}
+
+// httpClient implements the Do method, which is the exact
+// API of the http.Client's DO function. This helps with testing.
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
 // GenerateToken generates a token, using the username/password used when calling New
 // and stores it in an unexported field in the Hive struct
 func (h *Hive) GenerateToken() error {
-	client := &http.Client{}
-
 	b, err := json.Marshal(h.Config)
 	if err != nil {
 		return fmt.Errorf("error marshalling config: %w", err)
@@ -79,22 +91,26 @@ func (h *Hive) GenerateToken() error {
 
 	req.Header.Set("Accept", "application/json")
 
-	res, err := client.Do(req)
+	res, err := h.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("error requesting login token: %w", err)
 	}
 
 	defer res.Body.Close()
 
-	var r map[string]string
-	json.NewDecoder(res.Body).Decode(&r)
+	response := struct {
+		Token string `json:"token,omitempty"`
+	}{}
 
-	t, ok := r["token"]
-	if !ok {
+	json.NewDecoder(res.Body).Decode(&response)
+
+	if response.Token == "" {
 		return errors.New("no token returned")
 	}
 
-	h.Config.token = t
+	h.Config.token = response.Token
+
+	fmt.Printf("Token: %s \n", response.Token)
 
 	return nil
 }
@@ -143,8 +159,6 @@ func (h *Hive) BoostHeating(nodeID string, targetDuration int32, targetTemperatu
 		return fmt.Errorf("error marshalling req: %w", err)
 	}
 
-	client := &http.Client{}
-
 	req, err := http.NewRequest("PUT", nodeEndpoint+nodeID, bytes.NewBuffer(b))
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
@@ -155,7 +169,7 @@ func (h *Hive) BoostHeating(nodeID string, targetDuration int32, targetTemperatu
 	req.Header.Set("X-AlertMe-Client", "swagger")
 	req.Header.Set("X-Omnia-Access-Token", h.token)
 
-	res, err := client.Do(req)
+	res, err := h.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("error making request: %w", err)
 	}
@@ -167,8 +181,6 @@ func (h *Hive) BoostHeating(nodeID string, targetDuration int32, targetTemperatu
 
 // getNodeInformation takes a nodeID and returns the information for that node
 func (h *Hive) getNodeInformation(nodeID string) (Nodes, error) {
-	client := &http.Client{}
-
 	var nodeInfo Nodes
 
 	req, err := http.NewRequest("GET", nodeEndpoint+nodeID, nil)
@@ -181,7 +193,7 @@ func (h *Hive) getNodeInformation(nodeID string) (Nodes, error) {
 	req.Header.Set("X-AlertMe-Client", "swagger")
 	req.Header.Set("X-Omnia-Access-Token", h.token)
 
-	res, err := client.Do(req)
+	res, err := h.httpClient.Do(req)
 	if err != nil {
 		return nodeInfo, fmt.Errorf("error requesting node information: %w", err)
 	}

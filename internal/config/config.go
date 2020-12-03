@@ -8,7 +8,6 @@ import (
 )
 
 type Config struct {
-	Interval   string           `json:"interval,omitempty"`
 	Thermostat ThermostatConfig `json:"thermostat,omitempty"`
 	Weather    WeatherConfig    `json:"weather,omitempty"`
 	Database   DatabaseConfig   `json:"database,omitempty"`
@@ -16,6 +15,7 @@ type Config struct {
 
 type ThermostatConfig struct {
 	Enabled      bool      `json:"enabled,omitempty"`
+	Interval     string    `json:"interval,omitempty"`
 	Username     string    `json:"username,omitempty"`
 	Password     string    `json:"password,omitempty"`
 	ThermostatID string    `json:"thermostatID,omitempty"`
@@ -30,11 +30,12 @@ type AutoBoost struct {
 }
 
 type WeatherConfig struct {
-	Enabled bool   `json:"enabled,omitempty"`
-	City    string `json:"city,omitempty"`
-	Country string `json:"country,omitempty"`
-	APIKey  string `json:"apiKey,omitempty"`
-	Units   string `json:"units,omitempty"`
+	Enabled  bool   `json:"enabled,omitempty"`
+	Interval string `json:"interval,omitempty"`
+	City     string `json:"city,omitempty"`
+	Country  string `json:"country,omitempty"`
+	APIKey   string `json:"apiKey,omitempty"`
+	Units    string `json:"units,omitempty"`
 }
 
 type DatabaseConfig struct {

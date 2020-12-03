@@ -16,13 +16,31 @@ type Config struct {
 }
 
 type Weather struct {
+	httpClient httpClient
 	Config
 }
 
-func New(c Config) *Weather {
-	return &Weather{
-		Config: c,
+func New(c Config, client httpClient) *Weather {
+	// TODO - delete in the next commit
+	// Set-up for testing only.
+	// if c.Endpoint == "" {
+	// 	c.Endpoint = openWeatherMapEndpoint
+	// }
+
+	if client == nil {
+		client = &http.Client{}
 	}
+
+	return &Weather{
+		httpClient: client,
+		Config:     c,
+	}
+}
+
+// httpClient implements the Do method, which is the exact
+// API of the http.Client's DO function. This helps with testing.
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
 type CurrentWeather struct {
@@ -107,8 +125,6 @@ type Sys struct {
 }
 
 func (w *Weather) GetCurrentWeather() (CurrentWeather, error) {
-	client := &http.Client{}
-
 	endpoint := fmt.Sprintf("%s?q=%s,%s&appid=%s", openWeatherMapEndpoint, w.City, w.Country, w.APIKey)
 
 	if w.Units != "" {
@@ -117,12 +133,12 @@ func (w *Weather) GetCurrentWeather() (CurrentWeather, error) {
 
 	var cw CurrentWeather
 
-	req, err := http.NewRequest("GET", endpoint, nil)
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
 		return cw, fmt.Errorf("error creating request: %w", err)
 	}
 
-	res, err := client.Do(req)
+	res, err := w.httpClient.Do(req)
 	if err != nil {
 		return cw, fmt.Errorf("error requesting node information: %w", err)
 	}
