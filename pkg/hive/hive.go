@@ -6,17 +6,27 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
+	"github.com/openlyinc/pointy"
+
+	"github.com/simondrake/home-stats/pkg/cognitosrp"
 )
 
 const (
-	tokenEndpoint = "https://beekeeper.hivehome.com/1.0/cognito"
-	nodeEndpoint  = "https://api.prod.bgchprod.info/omnia/nodes/"
+	authEndpoint = "https://cognito-idp.eu-west-1.amazonaws.com"
+	nodeEndpoint = "https://api.prod.bgchprod.info/omnia/nodes/"
 )
 
 type Config struct {
-	token    string
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
+	token                    string
+	Username                 string `json:"username,omitempty"`
+	Password                 string `json:"password,omitempty"`
+	SSOPoolID                string `json:"ssoPoolID,omitempty"`
+	SSOPublicCognitoClientID string `json:"ssoPublicCognitoClientID,omitempty"`
 }
 
 type Hive struct {
@@ -79,38 +89,49 @@ type httpClient interface {
 // GenerateToken generates a token, using the username/password used when calling New
 // and stores it in an unexported field in the Hive struct
 func (h *Hive) GenerateToken() error {
-	b, err := json.Marshal(h.Config)
+	csrp, err := cognitosrp.NewCognitoSRP(h.Username, h.Password, h.SSOPoolID, h.SSOPublicCognitoClientID, nil)
 	if err != nil {
-		return fmt.Errorf("error marshalling config: %w", err)
+		return fmt.Errorf("error getting new cognito srp: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", tokenEndpoint+"/login", bytes.NewBuffer(b))
+	awsSession := session.Must(session.NewSession())
+
+	svc := cognitoidentityprovider.New(awsSession, aws.NewConfig().WithEndpoint(authEndpoint).WithRegion("eu-west-1"))
+
+	// initiate auth
+	rsp, err := svc.InitiateAuth(&cognitoidentityprovider.InitiateAuthInput{
+		AuthFlow:       pointy.String("USER_SRP_AUTH"),
+		ClientId:       aws.String(csrp.GetClientId()),
+		AuthParameters: csrp.GetAuthParams(),
+	})
 	if err != nil {
-		return fmt.Errorf("error creating request: %w", err)
+		return fmt.Errorf("error initiating auth: %w", err)
 	}
 
-	req.Header.Set("Accept", "application/json")
+	if rsp.ChallengeName == nil {
+		return errors.New("empty challenge name")
+	}
 
-	res, err := h.httpClient.Do(req)
+	if *rsp.ChallengeName != "PASSWORD_VERIFIER" {
+		return errors.New("unhandled challenge returned")
+	}
+
+	challengeResponses, _ := csrp.PasswordVerifierChallenge(rsp.ChallengeParameters, time.Now())
+
+	authResponse, err := svc.RespondToAuthChallenge(&cognitoidentityprovider.RespondToAuthChallengeInput{
+		ChallengeName:      pointy.String("PASSWORD_VERIFIER"),
+		ChallengeResponses: challengeResponses,
+		ClientId:           aws.String(csrp.GetClientId()),
+	})
 	if err != nil {
-		return fmt.Errorf("error requesting login token: %w", err)
+		return fmt.Errorf("error responding to auth challenge: %w", err)
 	}
 
-	defer res.Body.Close()
-
-	response := struct {
-		Token string `json:"token,omitempty"`
-	}{}
-
-	json.NewDecoder(res.Body).Decode(&response)
-
-	if response.Token == "" {
-		return errors.New("no token returned")
+	if authResponse.AuthenticationResult.IdToken == nil {
+		return errors.New("empty id token")
 	}
 
-	h.Config.token = response.Token
-
-	fmt.Printf("Token: %s \n", response.Token)
+	h.token = *authResponse.AuthenticationResult.IdToken
 
 	return nil
 }
@@ -166,8 +187,8 @@ func (h *Hive) BoostHeating(nodeID string, targetDuration int32, targetTemperatu
 
 	req.Header.Set("Content-Type", "application/vnd.alertme.zoo-6.2+json")
 	req.Header.Set("Accept", "application/vnd.alertme.zoo-6.2+json")
-	req.Header.Set("X-AlertMe-Client", "swagger")
-	req.Header.Set("X-Omnia-Access-Token", h.token)
+	req.Header.Set("X-Omnia-Client", "ESP")
+	req.Header.Set("Authorization", "Bearer "+h.token)
 
 	res, err := h.httpClient.Do(req)
 	if err != nil {
@@ -183,15 +204,17 @@ func (h *Hive) BoostHeating(nodeID string, targetDuration int32, targetTemperatu
 func (h *Hive) getNodeInformation(nodeID string) (Nodes, error) {
 	var nodeInfo Nodes
 
-	req, err := http.NewRequest("GET", nodeEndpoint+nodeID, nil)
+	endpoint := fmt.Sprintf("%s%s%s", nodeEndpoint, nodeID, "?fields=attributes.temperature")
+
+	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nodeInfo, fmt.Errorf("error creating request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/vnd.alertme.zoo-6.2+json")
 	req.Header.Set("Accept", "application/vnd.alertme.zoo-6.2+json")
-	req.Header.Set("X-AlertMe-Client", "swagger")
-	req.Header.Set("X-Omnia-Access-Token", h.token)
+	req.Header.Set("X-Omnia-Client", "ESP")
+	req.Header.Set("Authorization", "Bearer "+h.token)
 
 	res, err := h.httpClient.Do(req)
 	if err != nil {
