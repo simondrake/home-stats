@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/simondrake/home-stats/internal/config"
@@ -21,14 +22,14 @@ func main() {
 	hive := hivepkg.New(hivepkg.Config{
 		Username: conf.Thermostat.Username,
 		Password: conf.Thermostat.Password,
-	})
+	}, &http.Client{})
 
 	weather := weatherpkg.New(weatherpkg.Config{
 		City:    conf.Weather.City,
 		Country: conf.Weather.Country,
 		APIKey:  conf.Weather.APIKey,
 		Units:   conf.Weather.Units,
-	})
+	}, nil)
 
 	db := dbpkg.New(dbpkg.Config{
 		URI:      conf.Database.URI,
@@ -37,82 +38,97 @@ func main() {
 		Database: conf.Database.Database,
 	})
 
-	interval, err := time.ParseDuration(conf.Interval)
+	thermostatInterval, err := time.ParseDuration(conf.Thermostat.Interval)
 	if err != nil {
-		log.Fatalf("unable to parse duration: %+v", err)
+		log.Fatalf("unable to parse thermostat interval: %+v", err)
+	}
+
+	weatherInterval, err := time.ParseDuration(conf.Weather.Interval)
+	if err != nil {
+		log.Fatalf("unable to parse weather interval: %+v", err)
 	}
 
 	fmt.Printf(`Config Values set
-  Interval: %v
   Thermostat Enabled: %t
+  Thermostat Interval: %s
   AutoBoost Enabled: %t
   AutoBoost Min Temperature: %f
   Weather Enabled: %t
+  Weather Interval: %s
 
-`, interval,
-		conf.Thermostat.Enabled, conf.Thermostat.AutoBoost.Enabled, conf.Thermostat.AutoBoost.MinTemperature, conf.Weather.Enabled)
+`,
+		conf.Thermostat.Enabled, conf.Thermostat.Interval, conf.Thermostat.AutoBoost.Enabled, conf.Thermostat.AutoBoost.MinTemperature, conf.Weather.Enabled, conf.Weather.Interval)
 
-	t := time.NewTicker(interval)
+	it := time.NewTicker(thermostatInterval)
+	wt := time.NewTicker(weatherInterval)
 
-	for range t.C {
+	for {
+		select {
+		case <-it.C:
+			if conf.Thermostat.Enabled {
+				log.Println("Getting theromostat statistics")
 
-		if conf.Thermostat.Enabled {
-			log.Println("Getting theromostat statistics")
+				if err := hive.GenerateToken(); err != nil {
+					fmt.Printf("error generating token: %+v", err)
+					log.Fatalf("error generating token: %+v", err)
+				}
 
-			hive.GenerateToken()
-
-			thermostatTemp, err := hive.GetTempForNode(conf.Thermostat.ThermostatID)
-			if err != nil {
-				log.Fatalf("error getting temp for thermostat (%s): %+v", conf.Thermostat.ThermostatID, err)
-			}
-
-			db.Write(context.Background(), dbpkg.WriteRequest{
-				Measurement: "thermostat",
-				Tags: map[string]string{
-					"unit": "temperature",
-				},
-				Fields: map[string]interface{}{
-					"current": thermostatTemp,
-				},
-				Timestamp: time.Now(),
-			})
-
-			// If AutoBoost is enabled, we check if the minimum temperature has been met.
-			// If it has we boost the heating
-			if conf.Thermostat.AutoBoost.Enabled && thermostatTemp <= conf.Thermostat.AutoBoost.MinTemperature {
-				log.Println("Boosting heating")
-
-				err := hive.BoostHeating(
-					conf.Thermostat.ThermostatID,
-					conf.Thermostat.AutoBoost.TargetDuration,
-					conf.Thermostat.AutoBoost.TargetTemperature,
-				)
-
+				thermostatTemp, err := hive.GetTempForNode(conf.Thermostat.ThermostatID)
 				if err != nil {
-					log.Fatalf("error boosting the heating: %+v", err)
+					fmt.Printf("error getting temp for thermostat (%s): %+v", conf.Thermostat.ThermostatID, err)
+					log.Fatalf("error getting temp for thermostat (%s): %+v", conf.Thermostat.ThermostatID, err)
+				}
+
+				db.Write(context.Background(), dbpkg.WriteRequest{
+					Measurement: "thermostat",
+					Tags: map[string]string{
+						"unit": "temperature",
+					},
+					Fields: map[string]interface{}{
+						"current": thermostatTemp,
+					},
+					Timestamp: time.Now(),
+				})
+
+				// If AutoBoost is enabled, we check if the minimum temperature has been met.
+				// If it has we boost the heating
+				if conf.Thermostat.AutoBoost.Enabled && thermostatTemp <= conf.Thermostat.AutoBoost.MinTemperature {
+					log.Println("Boosting heating")
+
+					err := hive.BoostHeating(
+						conf.Thermostat.ThermostatID,
+						conf.Thermostat.AutoBoost.TargetDuration,
+						conf.Thermostat.AutoBoost.TargetTemperature,
+					)
+					if err != nil {
+						fmt.Printf("error boosting the heating: %+v", err)
+						log.Fatalf("error boosting the heating: %+v", err)
+					}
 				}
 			}
-		}
 
-		if conf.Weather.Enabled {
-			log.Println("Getting weather statistics")
+		case <-wt.C:
+			if conf.Weather.Enabled {
+				log.Println("Getting weather statistics")
 
-			currentWeather, err := weather.GetCurrentWeather()
-			if err != nil {
-				log.Fatalf("error getting current weather: %+v", err)
+				currentWeather, err := weather.GetCurrentWeather()
+				if err != nil {
+					fmt.Printf("error getting current weather: %+v \n", err)
+					log.Fatalf("error getting current weather: %+v", err)
+				}
+
+				db.Write(context.Background(), dbpkg.WriteRequest{
+					Measurement: "weather",
+					Tags: map[string]string{
+						"unit": "temperature",
+					},
+					Fields: map[string]interface{}{
+						"current": currentWeather.Main.Temperature,
+					},
+					Timestamp: time.Now(),
+				})
 			}
 
-			db.Write(context.Background(), dbpkg.WriteRequest{
-				Measurement: "weather",
-				Tags: map[string]string{
-					"unit": "temperature",
-				},
-				Fields: map[string]interface{}{
-					"current": currentWeather.Main.Temperature,
-				},
-				Timestamp: time.Now(),
-			})
 		}
-
 	}
 }

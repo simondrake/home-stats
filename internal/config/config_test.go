@@ -19,13 +19,42 @@ func TestNew(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, c)
+	})
 
-		assert.Equal(t, "test-user", c.HiveConfig.Username)
-		assert.Equal(t, "test-password", c.HiveConfig.Password)
-		assert.Equal(t, "id-000", c.HiveConfig.ThermostatID)
+	t.Run("should set correct values", func(t *testing.T) {
+		a := assert.New(t)
 
-		assert.Equal(t, "influx-user", c.InfluxDBConfig.Username)
-		assert.Equal(t, "influx-password", c.InfluxDBConfig.Password)
-		assert.Equal(t, "my-database", c.InfluxDBConfig.Database)
+		c, err := New("test_config.json")
+
+		assert.NoError(t, err)
+		assert.NotNil(t, c)
+
+		// Thermostat config values
+		a.True(c.Thermostat.Enabled)
+		a.Equal("10m", c.Thermostat.Interval)
+		a.Equal("user", c.Thermostat.Username)
+		a.Equal("password", c.Thermostat.Password)
+		a.Equal("000-111", c.Thermostat.ThermostatID)
+
+		// Thermostat Boost config values
+		a.False(c.Thermostat.AutoBoost.Enabled)
+		a.Equal(18.0, c.Thermostat.AutoBoost.MinTemperature)
+		a.Equal(int32(30), c.Thermostat.AutoBoost.TargetDuration)
+		a.Equal(int32(24), c.Thermostat.AutoBoost.TargetTemperature)
+
+		// Weather config values
+		a.False(c.Weather.Enabled)
+		a.Equal("3h", c.Weather.Interval)
+		a.Equal("London", c.Weather.City)
+		a.Equal("United Kingdom", c.Weather.Country)
+		a.Equal("2222", c.Weather.APIKey)
+		a.Equal("metric", c.Weather.Units)
+
+		// Database config values
+		a.Equal("http://localhost:3000", c.Database.URI)
+		a.Equal("dbUser", c.Database.Username)
+		a.Equal("dbPassword", c.Database.Password)
+		a.Equal("db", c.Database.Database)
+
 	})
 }
