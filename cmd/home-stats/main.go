@@ -20,8 +20,10 @@ func main() {
 	}
 
 	hive := hivepkg.New(hivepkg.Config{
-		Username: conf.Thermostat.Username,
-		Password: conf.Thermostat.Password,
+		Username:                 conf.Thermostat.Username,
+		Password:                 conf.Thermostat.Password,
+		SSOPoolID:                conf.Thermostat.HiveSSO.PoolID,
+		SSOPublicCognitoClientID: conf.Thermostat.HiveSSO.PublicCognitoClientID,
 	}, &http.Client{})
 
 	weather := weatherpkg.New(weatherpkg.Config{

@@ -20,6 +20,7 @@ type ThermostatConfig struct {
 	Password     string    `json:"password,omitempty"`
 	ThermostatID string    `json:"thermostatID,omitempty"`
 	AutoBoost    AutoBoost `json:"autoBoost,omitempty"`
+	HiveSSO      HiveSSO   `json:"hiveSSO,omitempty"`
 }
 
 type AutoBoost struct {
@@ -27,6 +28,11 @@ type AutoBoost struct {
 	MinTemperature    float64 `json:"minTemperature,omitempty"`
 	TargetDuration    int32   `json:"targetDuration,omitempty"`
 	TargetTemperature int32   `json:"targetTemperature,omitempty"`
+}
+
+type HiveSSO struct {
+	PoolID                string `json:"poolID,omitempty"`
+	PublicCognitoClientID string `json:"publicCognitoClientID,omitempty"`
 }
 
 type WeatherConfig struct {

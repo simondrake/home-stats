@@ -1,27 +1,27 @@
 {
-	"thermostat": {
-		"enabled": true,
-		"interval": "10m",
-		"username": "user",
-		"password": "password",
-		"thermostatID": "000-111",
-		"autoBoost": {
-			"minTemperature": 18.0,
-			"targetDuration": 30,
-			"targetTemperature": 24
-		}
-	},
-	"weather": {
-		"interval": "3h",
-		"city": "London",
-		"country": "United Kingdom",
-		"apiKey": "2222",
-		"units": "metric"
-	},
-	"database": {
-		"uri": "http://localhost:3000",
-		"username": "dbUser",
-		"password": "dbPassword",
-		"database": "db"
-	}
+  "thermostat": {
+    "enabled": true,
+    "interval": "10m",
+    "username": "user",
+    "password": "password",
+    "thermostatID": "000-111",
+    "autoBoost": {
+      "minTemperature": 18.0,
+      "targetDuration": 30,
+      "targetTemperature": 24
+    }
+  },
+  "weather": {
+    "interval": "3h",
+    "city": "London",
+    "country": "United Kingdom",
+    "apiKey": "2222",
+    "units": "metric"
+  },
+  "database": {
+    "uri": "http://localhost:3000",
+    "username": "dbUser",
+    "password": "dbPassword",
+    "database": "db"
+  }
 }
