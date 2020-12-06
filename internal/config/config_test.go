@@ -55,6 +55,5 @@ func TestNew(t *testing.T) {
 		a.Equal("dbUser", c.Database.Username)
 		a.Equal("dbPassword", c.Database.Password)
 		a.Equal("db", c.Database.Database)
-
 	})
 }
