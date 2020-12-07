@@ -206,6 +206,10 @@ func (h *Hive) getNodeInformation(nodeID string) (Nodes, error) {
 
 	endpoint := fmt.Sprintf("%s%s%s", nodeEndpoint, nodeID, "?fields=attributes.temperature")
 
+	/*
+	   $ curl -s -H "Authorization: $HIVETOKEN" -H "Content-Type: application/json" 'https://beekeeper-uk.hivehome.com/1.0/products' | jq -r '.[] | select(.type == "heating") | .props.temperature'
+	*/
+
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nodeInfo, fmt.Errorf("error creating request: %w", err)
