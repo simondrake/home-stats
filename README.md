@@ -7,6 +7,15 @@ Home Stats is a small utility that does the following:
   * If the temperature is <= the `minTemperature`, specified in `settings.json` it will boost the heating for the duration specified.
 * Queries the [OpenWeather](https://openweathermap.org/api) API, gets the temperature and stores it in Influx.
 
+## Docker Setup
+
+* `docker build -t homestats .`
+* `docker run -v /path/to/local/settings.jsons:/app/settings.json homestats`
+
+OR
+
+* `docker-compose up -d`
+
 # Attributions
 
 * [cognito-srp](https://github.com/alexrudd/cognito-srp) by [@alexrudd](https://github.com/alexrudd), which was copied and added to this project.
