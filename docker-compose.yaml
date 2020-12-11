@@ -1,6 +1,17 @@
 ---
 version: "2.1"
 services:
+  app:
+    image: homestats
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./settings.json:/app/settings.json
+    depends_on:
+      - influxdb
+    links:
+      - "influxdb:db"
   influxdb:
     image: influxdb
     container_name: influxdb
@@ -9,8 +20,11 @@ services:
       - INFLUXDB_ADMIN_ENABLED=true
       - INFLUXDB_ADMIN_USER=admin
       - INFLUXDB_ADMIN_PASSWORD=password
+      - INFLUXDB_HTTP_AUTH_ENABLED=true
     volumes:
       - influxdb-volume:/var/lib/influxdb
+      # Initialization script to create homestats database
+      - ./scripts:/docker-entrypoint-initdb.d
     ports:
       - 8086:8086
     restart: unless-stopped
@@ -24,6 +38,8 @@ services:
     links:
       - influxdb
     user: "472"
+    depends_on:
+      - influxdb
     restart: unless-stopped
 
 volumes:
