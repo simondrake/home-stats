@@ -44,6 +44,11 @@ type WeatherConfig struct {
 	Units    string `json:"units,omitempty"`
 }
 
+type SpeedTestConfig struct {
+	Enabled  bool   `json:"enabled,omitempty"`
+	Interval string `json:"interval,omitempty"`
+}
+
 type DatabaseConfig struct {
 	URI      string `json:"uri,omitempty"`
 	Username string `json:"username,omitempty"`
